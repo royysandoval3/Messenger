@@ -1,0 +1,4 @@
+npx react-native init MessengerApp
+cd MessengerApp
+npm install @react-navigation/native @react-navigation/stack react-native-gesture-handler react-native-reanimated react-native-screens
+npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore
