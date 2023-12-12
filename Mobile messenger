@@ -2,3 +2,67 @@ npx react-native init MessengerApp
 cd MessengerApp
 npm install @react-navigation/native @react-navigation/stack react-native-gesture-handler react-native-reanimated react-native-screens
 npm install @react-native-firebase/app @react-native-firebase/auth @react-native-firebase/firestore
+// ChatScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, FlatList } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+
+const ChatScreen = () => {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    const unsubscribe = firestore()
+      .collection('messages')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot((querySnapshot) => {
+        const messages = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messages);
+      });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleSend = async () => {
+    const user = auth().currentUser;
+
+    await firestore().collection('messages').add({
+      text,
+      createdAt: new Date(),
+      user: {
+        _id: user.uid,
+        name: user.displayName,
+      },
+    });
+
+    setText('');
+  };
+
+  return (
+    <View>
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View>
+            <Text>{item.user.name}: {item.text}</Text>
+          </View>
+        )}
+      />
+      <View>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Type your message..."
+        />
+        <Button title="Send" onPress={handleSend} />
+      </View>
+    </View>
+  );
+};
+
+export default ChatScreen;
