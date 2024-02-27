@@ -66,3 +66,27 @@ const ChatScreen = () => {
 };
 
 export default ChatScreen;
+
+// App.js
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import ChatScreen from './src/ChatScreen';
+
+const Stack = createStackNavigator();
+
+const App = () => {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="Chat" component={ChatScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+};
+
+export default App;
+
+npx react-native run-android  # for Android
+# or
+npx react-native run-ios      # for iOS
