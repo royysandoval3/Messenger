@@ -1,1 +1,125 @@
 npm install @react-native-community/async-storage react-native-image-picker
+// ChatScreen.js
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, FlatList, Image, TouchableOpacity } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import storage from '@react-native-firebase/storage';
+import ImagePicker from 'react-native-image-picker';
+
+const ChatScreen = () => {
+  const [messages, setMessages] = useState([]);
+  const [text, setText] = useState('');
+  const [image, setImage] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = firestore()
+      .collection('messages')
+      .orderBy('createdAt', 'desc')
+      .onSnapshot((querySnapshot) => {
+        const messages = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setMessages(messages);
+      });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleSend = async () => {
+    const user = auth().currentUser;
+
+    if (image) {
+      const uploadUri = image.uri;
+      const filename = uploadUri.substring(uploadUri.lastIndexOf('/') + 1);
+      const storageRef = storage().ref(`images/${filename}`);
+      const task = storageRef.putFile(uploadUri);
+
+      try {
+        await task;
+        const imageUrl = await storageRef.getDownloadURL();
+        await firestore().collection('messages').add({
+          imageUrl,
+          createdAt: new Date(),
+          user: {
+            _id: user.uid,
+            name: user.displayName,
+          },
+        });
+        setImage(null);
+      } catch (error) {
+        console.error(error);
+      }
+    } else if (text.trim() !== '') {
+      await firestore().collection('messages').add({
+        text,
+        createdAt: new Date(),
+        user: {
+          _id: user.uid,
+          name: user.displayName,
+        },
+      });
+      setText('');
+    }
+  };
+
+  const handleImagePicker = () => {
+    const options = {
+      title: 'Select Image',
+      storageOptions: {
+        skipBackup: true,
+        path: 'images',
+      },
+    };
+
+    ImagePicker.showImagePicker(options, (response) => {
+      if (response.didCancel) {
+        console.log('User cancelled image picker');
+      } else if (response.error) {
+        console.log('ImagePicker Error: ', response.error);
+      } else {
+        const source = { uri: response.uri };
+        setImage(source);
+      }
+    });
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={messages}
+        inverted
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <View style={{ flexDirection: 'row', margin: 10 }}>
+            {item.imageUrl && <Image source={{ uri: item.imageUrl }} style={{ width: 50, height: 50, borderRadius: 25 }} />}
+            <View style={{ marginLeft: 10 }}>
+              <Text>{item.user.name}:</Text>
+              {item.text && <Text>{item.text}</Text>}
+            </View>
+          </View>
+        )}
+      />
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+        <TextInput
+          style={{ flex: 1, height: 40, borderWidth: 1, borderRadius: 5, marginRight: 10, paddingHorizontal: 10 }}
+          value={text}
+          onChangeText={setText}
+          placeholder="Type your message..."
+        />
+        <TouchableOpacity onPress={handleImagePicker} style={{ backgroundColor: 'lightblue', padding: 10, borderRadius: 5 }}>
+          <Text>Image</Text>
+        </TouchableOpacity>
+        <Button title="Send" onPress={handleSend} />
+      </View>
+      {image && (
+        <View style={{ alignItems: 'center', marginVertical: 10 }}>
+          <Image source={image} style={{ width: 200, height: 200, borderRadius: 10 }} />
+        </View>
+      )}
+    </View>
+  );
+};
+
+export default ChatScreen;
